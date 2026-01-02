@@ -1,0 +1,108 @@
+# Build artifacts
+build/
+*.build/
+x64/
+x86/
+bin/
+lib/
+*.exe
+*.out
+*.app
+
+# Compiled objects
+*.o
+*.obj
+*.a
+*.lib
+*.so
+*.so.*
+*.dylib
+*.dll
+*.slo
+*.lo
+*.la
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Debug files
+*.dSYM/
+*.su
+*.idb
+*.pdb
+*.ilk
+*.map
+*.exp
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Dependencies
+node_modules/
+vendor/
+*.gem
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+*.ninja
+.ninja_deps
+.ninja_log
+
+# Coverage
+*.gcno
+*.gcda
+*.gcov
+
+# Profiling
+*.profraw
+
+# Package files
+*.deb
+*.rpm
+*.tar.gz
+*.zip
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp
+
+# Backups
+*.bak
+*.backup
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+.venv
+venv/
+
+# Rust
+/target/
+**/*.rs.bk
+
+# Java
+*.class
+*.jar
+*.war
+*.ear
