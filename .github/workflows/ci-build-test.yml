@@ -1,0 +1,81 @@
+name: CI - Build & Test
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master, develop ]
+  workflow_dispatch:  # 允许手动触发
+
+jobs:
+  build-and-test:
+    name: Build & Test on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-24.04, macos-15, windows-2022 ]
+        build-type: [ Debug, Release ]
+        include:
+          - os: ubuntu-24.04
+            cmake-generator: Ninja
+            extra-cmake-args: ""
+          - os: macos-15
+            cmake-generator: Ninja
+            extra-cmake-args: ""
+          - os: windows-2022
+            cmake-generator: Ninja
+            extra-cmake-args: ""
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive   # 如果有 git submodule（如第三方依赖）
+
+      - name: Setup CMake
+        uses: lukka/get-cmake@v3.30.x   # 推荐用最新稳定版
+
+      - name: Setup Ninja
+        uses: lukka/run-ninja@v3
+        # 如果不想用 action，也可以在下面手动安装，但这个最简单
+
+      - name: Cache build dependencies
+        id: cache-build
+        uses: actions/cache@v4
+        with:
+          path: |
+            build/
+            ~/.cache/vcpkg/   # 如果你用 vcpkg
+            vcpkg_installed/  # 如果 vcpkg 在项目里
+          key: ${{ runner.os }}-cmake-${{ matrix.build-type }}-${{ hashFiles('CMakeLists.txt', '**/CMakePresets.json', 'vcpkg.json') }}
+          restore-keys: ${{ runner.os }}-cmake-
+
+      - name: Configure CMake
+        run: |
+          cmake -S . -B build \
+            -G "${{ matrix.cmake-generator }}" \
+            -DCMAKE_BUILD_TYPE=${{ matrix.build-type }} \
+            -DBUILD_TESTING=ON \
+            ${{ matrix.extra-cmake-args }}
+
+      - name: Build
+        run: cmake --build build --config ${{ matrix.build-type }} --parallel $(nproc || nproc.exe || sysctl -n hw.ncpu)
+
+      - name: Test
+        working-directory: build
+        run: ctest --output-on-failure -C ${{ matrix.build-type }} --parallel $(nproc || nproc.exe || sysctl -n hw.ncpu)
+
+      # 可选：如果有 coverage（需要额外配置 llvm-cov 或 gcovr）
+      # - name: Coverage (Ubuntu only)
+      #   if: matrix.os == 'ubuntu-24.04' && matrix.build-type == 'Debug'
+      #   run: |
+      #     cmake --build build --target coverage
+      #     bash <(curl -s https://codecov.io/bash) || echo "Coverage upload failed"
+
+      # 可选：静态分析（clang-tidy 示例，需要在 CMake 中启用）
+      - name: Static Analysis (clang-tidy) - Ubuntu only
+        if: matrix.os == 'ubuntu-24.04' && matrix.build-type == 'Debug'
+        run: |
+          run-clang-tidy -p build -quiet -checks='*' -header-filter='.*' | tee clang-tidy-report.txt
