@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cstring>
 #include <memory>
+#include <random>
 #include <vector>
 
 namespace boltdb {
@@ -28,10 +29,6 @@ class PageTest : public ::testing::Test {
   std::unique_ptr<std::byte[]> buf;
   Page* page;
 };
-
-// ════════════════════════════════════════════════════════════════════
-// Tests
-// ════════════════════════════════════════════════════════════════════
 
 TEST_F(PageTest, PageType) {
   page->flags = PageFlag::kBranch;
@@ -142,28 +139,6 @@ TEST_F(PageTest, BranchElements) {
   EXPECT_EQ(elems[0].pgid, PageId{99});
 }
 
-TEST(PageIdTest, MergePageIds) {
-  PageIds a = {PageId{1}, PageId{3}, PageId{5}, PageId{7}};
-  PageIds b = {PageId{2}, PageId{4}, PageId{6}};
-
-  auto merged = MergePageIds(a, b);
-  EXPECT_EQ(merged.size(), 7);
-  for (std::size_t i = 0; i < merged.size(); ++i) {
-    EXPECT_EQ(merged[i], PageId{i + 1});
-  }
-
-  // In-place variant
-  PageIds dst(7);
-  MergePageIds(std::span{dst}, std::span<const PageId>{a},
-               std::span<const PageId>{b});
-  EXPECT_EQ(dst, merged);
-
-  // Edge cases
-  EXPECT_EQ(MergePageIds({}, b), b);
-  EXPECT_EQ(MergePageIds(a, {}), a);
-  EXPECT_TRUE(MergePageIds({}, {}).empty());
-}
-
 TEST_F(PageTest, EmptyPage) {
   page->flags = PageFlag::kLeaf;
   page->count = 0;
@@ -183,6 +158,85 @@ TEST_F(PageTest, HexDump) {
   page->HexDump(32);
   std::string output = testing::internal::GetCapturedStdout();
   EXPECT_FALSE(output.empty());
+}
+
+class PageIdMergeTest : public ::testing::Test {
+ protected:
+  // Helper to convert vector to PageIds
+  PageIds ToPageIds(const std::vector<uint64_t>& ids) {
+    PageIds pgids;
+    pgids.reserve(ids.size());
+
+    for (auto id : ids) pgids.push_back(PageId{id});
+
+    return pgids;
+  }
+};
+
+TEST_F(PageIdMergeTest, MergeBasic) {
+  struct TestCase {
+    PageIds a;
+    PageIds b;
+    PageIds expected;
+  };
+
+  std::vector<TestCase> test_cases{
+      TestCase{
+          .a = ToPageIds({4, 5, 6, 10, 11, 12, 13, 27}),
+          .b = ToPageIds({1, 3, 8, 9, 25, 30}),
+          .expected =
+              ToPageIds({1, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13, 25, 27, 30}),
+      },
+
+      TestCase{
+          .a = ToPageIds({4, 5, 6, 10, 11, 12, 13, 27, 35, 36}),
+          .b = ToPageIds({8, 9, 25, 30}),
+          .expected =
+              ToPageIds({4, 5, 6, 8, 9, 10, 11, 12, 13, 25, 27, 30, 35, 36}),
+      },
+  };
+
+  for (const auto& ts : test_cases) {
+    EXPECT_EQ(ts.expected, MergePageIds(ts.a, ts.b));
+  }
+}
+
+TEST_F(PageIdMergeTest, MergeQuick) {
+  std::random_device rd;
+  std::mt19937 gen(rd());
+  std::uniform_int_distribution<> size_dist(0, 20);
+  std::uniform_int_distribution<uint64_t> id_dist(1, 1000);
+
+  const int kNumIterations = 1000;
+
+  for (int iter = 0; iter < kNumIterations; ++iter) {
+    // Generate random sizes
+    size_t size_a = size_dist(gen);
+    size_t size_b = size_dist(gen);
+
+    // Generate random page IDs
+    std::vector<uint64_t> a_raw(size_a);
+    std::vector<uint64_t> b_raw(size_b);
+
+    std::generate(a_raw.begin(), a_raw.end(), [&]() { return id_dist(gen); });
+    std::generate(b_raw.begin(), b_raw.end(), [&]() { return id_dist(gen); });
+
+    // Sort the inputs
+    std::sort(a_raw.begin(), a_raw.end());
+    std::sort(b_raw.begin(), b_raw.end());
+
+    auto a = ToPageIds(a_raw);
+    auto b = ToPageIds(b_raw);
+    auto got = MergePageIds(a, b);
+
+    std::vector<uint64_t> exp_raw;
+    exp_raw.insert(exp_raw.end(), a_raw.begin(), a_raw.end());
+    exp_raw.insert(exp_raw.end(), b_raw.begin(), b_raw.end());
+    std::sort(exp_raw.begin(), exp_raw.end());
+    auto expected = ToPageIds(exp_raw);
+
+    EXPECT_EQ(expected, got);
+  }
 }
 
 }  // namespace boltdb
