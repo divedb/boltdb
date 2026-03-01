@@ -6,6 +6,8 @@ project(
     LANGUAGES CXX
 )
 
+add_subdirectory(third_party/mio)
+
 option(BOLTDB_BUILD_TESTS "Build tests" ON)
 list(PREPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 

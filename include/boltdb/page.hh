@@ -8,23 +8,6 @@
 
 namespace boltdb {
 
-enum class PageId : std::uint64_t {};
-
-constexpr auto operator<=>(PageId lhs, PageId rhs) {
-  return static_cast<uint64_t>(lhs) <=> static_cast<uint64_t>(rhs);
-}
-
-constexpr uint64_t ToUint64(PageId id) { return static_cast<uint64_t>(id); }
-
-/// \brief PageFlag represents the type of a page in BoltDB. It is used to
-///        determine the structure and behavior of the page.
-enum class PageFlag : std::uint16_t {
-  kBranch = 0x01,
-  kLeaf = 0x02,
-  kMeta = 0x04,
-  kFreelist = 0x10,
-};
-
 constexpr bool operator&(PageFlag a, PageFlag b) {
   return (static_cast<uint16_t>(a) & static_cast<uint16_t>(b)) != 0;
 }
@@ -122,11 +105,15 @@ class Meta;
 /// │  Page Header  │  Element[0]  Element[1]  ...  │  keys/vals  │
 /// └─────────────────────────────────────────────────────────────┘
 ///                 | DataPtr()
-struct Page {
-  PageId id;
-  PageFlag flags;
-  std::uint16_t count;
-  std::uint32_t overflow;
+class Page {
+ public:
+  Page(PageId id, PageFlag flags)
+      : id_(id), flags_(flags), count_(0), overflow_(0) {}
+
+  PageId Id() const noexcept { return id_; }
+  PageFlag Flags() const noexcept { return flags_; }
+  std::uint16_t Count() const noexcept { return count_; }
+  std::uint32_t Overflow() const noexcept { return overflow_; }
 
   [[nodiscard]] bool IsBranch() const noexcept {
     return flags & PageFlag::kBranch;
@@ -243,6 +230,12 @@ struct Page {
   static constexpr std::size_t kHeaderSize = sizeof(PageId) + sizeof(PageFlag) +
                                              sizeof(std::uint16_t) +
                                              sizeof(std::uint32_t);
+
+ private:
+  PageId id_;
+  PageFlag flags_;
+  std::uint16_t count_;
+  std::uint32_t overflow_;
 };
 
 // Verify the header size matches the actual layout (no hidden padding).
