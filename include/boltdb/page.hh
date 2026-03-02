@@ -6,20 +6,9 @@
 #include <span>
 #include <string_view>
 
+#include "boltdb/types.hh"
+
 namespace boltdb {
-
-constexpr bool operator&(PageFlag a, PageFlag b) {
-  return (static_cast<uint16_t>(a) & static_cast<uint16_t>(b)) != 0;
-}
-
-constexpr std::string_view PageFlagToString(PageFlag flags) {
-  if (flags & PageFlag::kBranch) return "branch";
-  if (flags & PageFlag::kLeaf) return "leaf";
-  if (flags & PageFlag::kMeta) return "meta";
-  if (flags & PageFlag::kFreelist) return "freelist";
-
-  return "unknown";
-}
 
 enum class LeafFlag : std::uint32_t {
   kNone = 0x00,
@@ -115,20 +104,29 @@ class Page {
   std::uint16_t Count() const noexcept { return count_; }
   std::uint32_t Overflow() const noexcept { return overflow_; }
 
+  void SetId(PageId id) noexcept { id_ = id; }
+  void SetFlags(PageFlag flags) noexcept { flags_ = flags; }
+  void SetCount(std::uint16_t count) noexcept { count_ = count; }
+  void SetOverflow(std::uint32_t overflow) noexcept { overflow_ = overflow; }
+
   [[nodiscard]] bool IsBranch() const noexcept {
-    return flags & PageFlag::kBranch;
+    return flags_ & PageFlag::kBranch;
   }
-  [[nodiscard]] bool IsLeaf() const noexcept { return flags & PageFlag::kLeaf; }
-  [[nodiscard]] bool IsMeta() const noexcept { return flags & PageFlag::kMeta; }
+  [[nodiscard]] bool IsLeaf() const noexcept {
+    return flags_ & PageFlag::kLeaf;
+  }
+  [[nodiscard]] bool IsMeta() const noexcept {
+    return flags_ & PageFlag::kMeta;
+  }
   [[nodiscard]] bool IsFreelist() const noexcept {
-    return flags & PageFlag::kFreelist;
+    return flags_ & PageFlag::kFreelist;
   }
 
   [[nodiscard]] std::string TypeName() const {
-    auto sv = PageFlagToString(flags);
+    auto sv = PageFlagToString(flags_);
     if (sv != "unknown") return std::string(sv);
 
-    return std::format("unknown<{:02x}>", static_cast<uint16_t>(flags));
+    return std::format("unknown<{:02x}>", static_cast<uint16_t>(flags_));
   }
 
   /// Pointer to the first byte after the page header.
@@ -154,7 +152,7 @@ class Page {
   }
 
   [[nodiscard]] BranchElement& GetBranchElement(std::uint16_t index) {
-    assert(IsBranch() && index < count);
+    assert(IsBranch() && index < count_);
 
     auto* elems = reinterpret_cast<BranchElement*>(DataPtr());
 
@@ -163,7 +161,7 @@ class Page {
 
   [[nodiscard]] const BranchElement& GetBranchElement(
       std::uint16_t index) const {
-    assert(IsBranch() && index < count);
+    assert(IsBranch() && index < count_);
 
     auto* elems = reinterpret_cast<const BranchElement*>(DataPtr());
 
@@ -171,19 +169,21 @@ class Page {
   }
 
   [[nodiscard]] std::span<BranchElement> BranchElements() {
-    if (count == 0) return {};
+    if (count_ == 0) return {};
+
     assert(IsBranch());
-    return {reinterpret_cast<BranchElement*>(DataPtr()), count};
+
+    return {reinterpret_cast<BranchElement*>(DataPtr()), count_};
   }
 
   [[nodiscard]] std::span<const BranchElement> BranchElements() const {
-    if (count == 0) return {};
+    if (count_ == 0) return {};
     assert(IsBranch());
-    return {reinterpret_cast<const BranchElement*>(DataPtr()), count};
+    return {reinterpret_cast<const BranchElement*>(DataPtr()), count_};
   }
 
   [[nodiscard]] LeafElement& GetLeafElement(std::uint16_t index) {
-    assert(IsLeaf() && index < count);
+    assert(IsLeaf() && index < count_);
 
     auto* elems = reinterpret_cast<LeafElement*>(DataPtr());
 
@@ -191,7 +191,7 @@ class Page {
   }
 
   [[nodiscard]] const LeafElement& GetLeafElement(std::uint16_t index) const {
-    assert(IsLeaf() && index < count);
+    assert(IsLeaf() && index < count_);
 
     auto* elems = reinterpret_cast<const LeafElement*>(DataPtr());
 
@@ -199,19 +199,19 @@ class Page {
   }
 
   [[nodiscard]] std::span<LeafElement> LeafElements() {
-    if (count == 0) return {};
+    if (count_ == 0) return {};
 
     assert(IsLeaf());
 
-    return {reinterpret_cast<LeafElement*>(DataPtr()), count};
+    return {reinterpret_cast<LeafElement*>(DataPtr()), count_};
   }
 
   [[nodiscard]] std::span<const LeafElement> LeafElements() const {
-    if (count == 0) return {};
+    if (count_ == 0) return {};
 
     assert(IsLeaf());
 
-    return {reinterpret_cast<const LeafElement*>(DataPtr()), count};
+    return {reinterpret_cast<const LeafElement*>(DataPtr()), count_};
   }
 
   /// Dump the first `n` bytes of this page to stderr as hex.
@@ -233,15 +233,13 @@ class Page {
 
  private:
   PageId id_;
+  std::uint32_t overflow_;
   PageFlag flags_;
   std::uint16_t count_;
-  std::uint32_t overflow_;
 };
 
-// Verify the header size matches the actual layout (no hidden padding).
-static_assert(Page::kHeaderSize ==
-                  offsetof(Page, overflow) + sizeof(Page::overflow),
-              "Page header has unexpected padding");
+static_assert(std::is_trivially_copyable_v<Page>);
+static_assert(sizeof(Page) == 16);
 
 // ====================================================================
 // PageInfo (human-readable diagnostic)

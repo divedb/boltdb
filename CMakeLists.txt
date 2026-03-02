@@ -9,6 +9,7 @@ project(
 add_subdirectory(third_party/mio)
 
 option(BOLTDB_BUILD_TESTS "Build tests" ON)
+option(BOLTDB_BUILD_BENCHMARKS "Build benchmarks" ON)
 list(PREPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
 add_library(boltdb INTERFACE)
@@ -23,6 +24,12 @@ target_include_directories(
 )
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
+
+if(BOLTDB_BUILD_BENCHMARKS)
+    set(BENCHMARK_ENABLE_TESTING OFF CACHE BOOL "" FORCE)
+    set(BENCHMARK_ENABLE_INSTALL OFF CACHE BOOL "" FORCE)
+    add_subdirectory(third_party/benchmark)
+endif()
 
 if(BOLTDB_BUILD_TESTS)
     include(FindGTest)

@@ -1,3 +1,9 @@
 [submodule "third_party/mio"]
 	path = third_party/mio
 	url = https://github.com/vimpunk/mio.git
+[submodule "third_party/bolt"]
+	path = third_party/bolt
+	url = https://github.com/boltdb/bolt.git
+[submodule "third_party/benchmark"]
+	path = third_party/benchmark
+	url = https://github.com/google/benchmark.git

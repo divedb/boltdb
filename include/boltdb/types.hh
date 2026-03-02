@@ -27,6 +27,19 @@ enum class PageFlag : std::uint16_t {
   kFreelist = 0x10,
 };
 
+constexpr bool operator&(PageFlag a, PageFlag b) {
+  return (static_cast<uint16_t>(a) & static_cast<uint16_t>(b)) != 0;
+}
+
+constexpr std::string_view PageFlagToString(PageFlag flags) {
+  if (flags & PageFlag::kBranch) return "branch";
+  if (flags & PageFlag::kLeaf) return "leaf";
+  if (flags & PageFlag::kMeta) return "meta";
+  if (flags & PageFlag::kFreelist) return "freelist";
+
+  return "unknown";
+}
+
 using TransactionId = std::uint64_t;
 
 /// \brief BucketHeader represents the header of a bucket in BoltDB. It contains

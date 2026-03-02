@@ -31,19 +31,19 @@ class PageTest : public ::testing::Test {
 };
 
 TEST_F(PageTest, PageType) {
-  page->flags = PageFlag::kBranch;
+  page->SetFlags(PageFlag::kBranch);
   EXPECT_TRUE(page->IsBranch());
   EXPECT_EQ(page->TypeName(), "branch");
 
-  page->flags = PageFlag::kLeaf;
+  page->SetFlags(PageFlag::kLeaf);
   EXPECT_TRUE(page->IsLeaf());
   EXPECT_EQ(page->TypeName(), "leaf");
 
-  page->flags = PageFlag::kMeta;
+  page->SetFlags(PageFlag::kMeta);
   EXPECT_TRUE(page->IsMeta());
   EXPECT_EQ(page->TypeName(), "meta");
 
-  page->flags = PageFlag::kFreelist;
+  page->SetFlags(PageFlag::kFreelist);
   EXPECT_TRUE(page->IsFreelist());
   EXPECT_EQ(page->TypeName(), "freelist");
 }
@@ -55,9 +55,9 @@ TEST_F(PageTest, LeafElements) {
   auto buf = AllocatePage(kBufSize);
   auto* p = AsPage(buf.get());
 
-  p->id = PageId{42};
-  p->flags = PageFlag::kLeaf;
-  p->count = 2;
+  p->SetId(PageId{42});
+  p->SetFlags(PageFlag::kLeaf);
+  p->SetCount(2);
 
   auto elems = p->LeafElements();
   EXPECT_EQ(elems.size(), 2);
@@ -122,8 +122,8 @@ TEST_F(PageTest, LeafElements) {
 }
 
 TEST_F(PageTest, BranchElements) {
-  page->flags = PageFlag::kBranch;
-  page->count = 1;
+  page->SetFlags(PageFlag::kBranch);
+  page->SetCount(1);
 
   auto elems = page->BranchElements();
   EXPECT_EQ(elems.size(), 1);
@@ -140,18 +140,18 @@ TEST_F(PageTest, BranchElements) {
 }
 
 TEST_F(PageTest, EmptyPage) {
-  page->flags = PageFlag::kLeaf;
-  page->count = 0;
+  page->SetFlags(PageFlag::kLeaf);
+  page->SetCount(0);
   EXPECT_TRUE(page->LeafElements().empty());
 
-  page->flags = PageFlag::kBranch;
+  page->SetFlags(PageFlag::kBranch);
   EXPECT_TRUE(page->BranchElements().empty());
 }
 
 TEST_F(PageTest, HexDump) {
-  page->id = PageId{1};
-  page->flags = PageFlag::kLeaf;
-  page->count = 0;
+  page->SetId(PageId{42});
+  page->SetFlags(PageFlag::kLeaf);
+  page->SetCount(0);
 
   // Just verify it doesn't crash
   testing::internal::CaptureStdout();
