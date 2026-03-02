@@ -58,8 +58,8 @@ class Node {
     return inodes_[index];
   }
 
-  [[nodiscard]] static int CompareKeys(std::span<const std::byte> lhs,
-                                       std::span<const std::byte> rhs) noexcept {
+  [[nodiscard]] static int CompareKeys(
+      std::span<const std::byte> lhs, std::span<const std::byte> rhs) noexcept {
     return CompareBytes(lhs, rhs);
   }
 
@@ -86,6 +86,17 @@ class Node {
   }
 
   bool IsSizeLessThan(std::size_t sz) const noexcept { return Size() < sz; }
+
+  Node* NextSibling() {
+    if (!parent_) return nullptr;
+
+    auto& siblings = parent_->children_;
+    auto it = std::find(siblings.begin(), siblings.end(), this);
+    assert(it != siblings.end() && "Node should be in its parent's children");
+
+    ++it;
+    return it != siblings.end() ? *it : nullptr;
+  }
 
   [[nodiscard]] std::size_t LowerBound(
       std::span<const std::byte> key) const noexcept {
@@ -119,6 +130,10 @@ class Node {
     return static_cast<std::size_t>(std::distance(inodes_.begin(), it) - 1);
   }
 
+  /// \brief Returns the child node at the specified index.
+  ///
+  /// \param index The index of the child node to return.
+  /// \return      The child node at the specified index.
   Node* ChildAt(std::size_t index) {
     assert(!is_leaf_ && "ChildAt should only be called on branch nodes");
     assert(index < children_.size() && "ChildAt index out of bounds");
@@ -134,8 +149,9 @@ class Node {
     children_.push_back(child);
   }
 
-  void Put(std::span<const std::byte> old_key, std::span<const std::byte> new_key,
-           std::span<const std::byte> value, PageId pgid, std::uint32_t flags) {
+  void Put(std::span<const std::byte> old_key,
+           std::span<const std::byte> new_key, std::span<const std::byte> value,
+           PageId pgid, std::uint32_t flags) {
     const auto lookup_key = old_key.empty() ? new_key : old_key;
     const auto index = LowerBound(lookup_key);
 
@@ -146,7 +162,8 @@ class Node {
         .flags = flags,
     };
 
-    if (index < inodes_.size() && CompareBytes(inodes_[index].key, lookup_key) == 0) {
+    if (index < inodes_.size() &&
+        CompareBytes(inodes_[index].key, lookup_key) == 0) {
       inodes_[index] = std::move(replacement);
     } else {
       inodes_.insert(inodes_.begin() + static_cast<std::ptrdiff_t>(index),
@@ -170,7 +187,8 @@ class Node {
  private:
   static int CompareBytes(std::span<const std::byte> lhs,
                           std::span<const std::byte> rhs) noexcept {
-    const auto mismatch = std::mismatch(lhs.begin(), lhs.end(), rhs.begin(), rhs.end());
+    const auto mismatch =
+        std::mismatch(lhs.begin(), lhs.end(), rhs.begin(), rhs.end());
     if (mismatch.first == lhs.end() && mismatch.second == rhs.end()) return 0;
     if (mismatch.first == lhs.end()) return -1;
     if (mismatch.second == rhs.end()) return 1;
